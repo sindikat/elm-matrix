@@ -9,11 +9,12 @@ module Matrix
   , compare, compareI, comm, diff
   , isEmpty, isSquare,  width, height, size
   , getRow, getCol, firstRow, lastRow, firstCol, lastCol
+  , rows, cols,
   , takeRows, takeCols, takeRowsEnd, takeColsEnd
   , dropRows, dropCols, dropRowsEnd, dropColsEnd
   , slice
   , transpose
-  -- , filterRow, filterCol
+  , filterRows, filterCols
   , compareCells, combineCells
   ) where
 
@@ -50,10 +51,10 @@ http://github.com/sindikat/elm-matrix
 @docs isEmpty, isSquare, width, height, size
 
 # Get rows and columns
-@docs getRow, getCol, firstRow, lastRow, firstCol, lastCol, takeRows, takeCols, takeRowsEnd, takeColsEnd, dropRows, dropCols, dropRowsEnd, dropColsEnd, slice
+@docs getRow, getCol, firstRow, lastRow, firstCol, lastCol, rows, cols, takeRows, takeCols, takeRowsEnd, takeColsEnd, dropRows, dropCols, dropRowsEnd, dropColsEnd, slice
 
 # Misc
-@docs transpose
+@docs transpose, filterRows, filterCols
 
 # Cells
 @docs compareCells, combineCells
@@ -61,9 +62,10 @@ http://github.com/sindikat/elm-matrix
 
 import Array exposing (Array)
 import Array.Extra
+import Array.Experimental
 import Maybe exposing (andThen)
 import Maybe.Extra
-import List.Extra
+import List.Experimental
 
 {-| An ordered collection of elements of the same type, arranged into a rectangular matrix of `m` columns and `n` rows.
 -}
@@ -201,7 +203,7 @@ Return Nothing if index out of bounds.
     get 2 2 (square 2 (+)) == Nothing
 -}
 get : Int -> Int -> Matrix a -> Maybe a
-get x y a = get2 y a `andThen` get2 x
+get x y a = Array.Experimental.get y a `andThen` Array.Experimental.get x
 
 
 {-| Set the element at a particular location and return new matrix.
@@ -212,7 +214,7 @@ Return the matrix unchanged if index out of bounds.
 set : Int -> Int -> a -> Matrix a -> Matrix a
 set x y e a =
   let
-    row = get2 y a
+    row = Array.Experimental.get y a
   in
     case row of
       Nothing -> a
@@ -401,9 +403,9 @@ compare cmp a1 a2 =
   let
     il1 = toIndexedList a1
     il2 = toIndexedList a2
-    filteredList = filterMap2 combineCells (compareCells cmp) il1 il2
+
   in
-    filteredList
+    List.Experimental.filterMap2 combineCells (compareCells cmp) il1 il2
 
 
 {-| Same as compare, but return only indexes of the form [(Int, Int)], not triples with indexes and pair of elements of the form [(Int,Int,(a,b))].
@@ -455,7 +457,7 @@ isSquare a = width a == height a
 width : Matrix a -> Int
 width a =
   let
-    row = get2 0 a
+    row = Array.Experimental.get 0 a
   in
     case row of
       Nothing -> 0
@@ -477,13 +479,13 @@ size a = (width a, height a)
 {-| Return a row of index *n* as a one-dimensional Array. Negative index means count from end. If index is out of bounds, return `Nothing`.
 -}
 getRow : Int -> Matrix a -> Maybe (Array a)
-getRow = get2
+getRow = Array.Experimental.get
 
 
 {-| Return a col of index *n* as a one-dimensional Array. Negative index means count from end. If index is out of bounds, return `Nothing`.
 -}
 getCol : Int -> Matrix a -> Maybe (Array a)
-getCol n = maybeSequenceArray << Array.map (get2 n)
+getCol n = Maybe.Extra.combineArray << Array.map (Array.Experimental.get n)
 
 
 {-| Return first row of a matrix as an Array.
@@ -510,6 +512,22 @@ lastCol : Matrix a -> Maybe (Array a)
 lastCol = getCol -1
 
 
+{-| Return the matrix as an array of arrays, where inner arrays are rows of the matrix.
+
+    rows (numbered1 3 3) == Array.fromList [[1,2,3],[4,5,6],[7,8,9]]
+-}
+rows : Matrix a -> Array (Array a)
+rows = identity
+
+
+{-| Return the matrix as an array of arrays, where inner arrays are columns of the matrix.
+
+    cols (numbered1 3 3) == Array.fromList [[1,4,7],[2,5,8],[3,6,9]]
+-}
+cols : Matrix a -> Array (Array a)
+cols = transpose
+
+
 {-| Take rows from up. Negative argument means count from down. Below are examples  of expressions with returned matrices underneath.
 
     takeRows 2 (numbered1 3 3)
@@ -523,7 +541,7 @@ lastCol = getCol -1
     7 8 9
 -}
 takeRows : Int -> Matrix a -> Matrix a
-takeRows = sliceUntil
+takeRows = Array.Extra.sliceUntil
 
 
 {-| Take columns from left. Negative argument means count from right. Below are examples  of expressions with returned matrices underneath.
@@ -541,7 +559,7 @@ takeRows = sliceUntil
     8 9
 -}
 takeCols : Int -> Matrix a -> Matrix a
-takeCols n = Array.map (sliceUntil n)
+takeCols n = Array.map (Array.Extra.sliceUntil n)
 
 
 {-| Take columns from down. Negative argument means count from up. Below are examples  of expressions with returned matrices underneath.
@@ -557,7 +575,7 @@ takeCols n = Array.map (sliceUntil n)
     4 5 6
 -}
 takeRowsEnd : Int -> Matrix a -> Matrix a
-takeRowsEnd n = sliceFrom (-n)
+takeRowsEnd n = Array.Extra.sliceFrom (-n)
 
 
 {-| Take columns from right. Negative argument means count from left. Below are examples  of expressions with returned matrices underneath.
@@ -575,27 +593,27 @@ takeRowsEnd n = sliceFrom (-n)
     7 8
 -}
 takeColsEnd : Int -> Matrix a -> Matrix a
-takeColsEnd n = Array.map (sliceFrom (-n))
+takeColsEnd n = Array.map (Array.Extra.sliceFrom (-n))
 
 
 {-|-}
 dropRows : Int -> Matrix a -> Matrix a
-dropRows = sliceFrom
+dropRows = Array.Extra.sliceFrom
 
 
 {-|-}
 dropCols : Int -> Matrix a -> Matrix a
-dropCols n = Array.map (sliceFrom n)
+dropCols n = Array.map (Array.Extra.sliceFrom n)
 
 
 {-|-}
 dropRowsEnd : Int -> Matrix a -> Matrix a
-dropRowsEnd n = sliceUntil (-n)
+dropRowsEnd n = Array.Extra.sliceUntil (-n)
 
 
 {-|-}
 dropColsEnd : Int -> Matrix a -> Matrix a
-dropColsEnd n = Array.map (sliceUntil (-n))
+dropColsEnd n = Array.map (Array.Extra.sliceFrom (-n))
 
 
 {-| Take a rectangular piece out of a matrix. The arguments are: horizontal-start, horizontal-end, vertical-start, vertical-end. The indexes are zero-based. The slice extracts from start including up to but not including end on both dimensions.
@@ -646,16 +664,16 @@ transpose a =
           Array.foldl step vector restRows
 
 
--- {-| TO BE ADDED
--- -}
--- filterRow : (Array a -> Bool) -> Matrix a -> Matrix a
--- filterRow p = Array.filter p
+{-| Remove rows that do not satisfy predicate. The row in a predicate is represented as an `Array`.
+-}
+filterRows : (Array a -> Bool) -> Matrix a -> Matrix a
+filterRows p = Array.filter p
 
 
--- {-|
--- -}
--- filterCol : (Array a -> Bool) -> Matrix a -> Matrix a
--- filterCol p =
+{-| Remove cols that do not satisfy predicate. The col in a predicate is represented as an `Array`.
+-}
+filterCols : (Array a -> Bool) -> Matrix a -> Matrix a
+filterCols p = transpose << Array.filter p << transpose
 
 
 {-| Take a binary predicate and two cells. Compare the elements within these cells. That is return True, if the predicate returns True for these elements, otherwise return False. Ignore indices during comparison.
@@ -671,102 +689,3 @@ compareCells cmp (_,_,e1) (_,_,e2) = e1 `cmp` e2
 -}
 combineCells : Cell a -> Cell b -> Cell (a,b)
 combineCells (x,y,e1) (_,_,e2) = (x,y,(e1,e2))
-
-
--- HELPER FUNCTIONS
--- These functions will be moved to
--- List.Extra, Maybe.Extra, Array.Extra
-maybeSequence : List (Maybe a) -> Maybe (List a)
-maybeSequence = listTraverse identity
-
-
-listTraverse : (a -> Maybe b) -> List a -> Maybe (List b)
-listTraverse f =
-  let
-    step e acc =
-      case f e of
-        Nothing -> Nothing
-        Just x -> Maybe.map ((::)x) acc
-  in
-    List.foldr step (Just [])
-
-
-listAp : List (a -> b) -> List a -> List b
-listAp fs xs =
-  List.concatMap (\x -> List.map (\f -> f x) fs) xs
-
-
-maybeSequenceArray : Array (Maybe a) -> Maybe (Array a)
-maybeSequenceArray = arrayTraverse identity
-
-
-arrayTraverse : (a -> Maybe b) -> Array a -> Maybe (Array b)
-arrayTraverse f =
-  let
-    step e acc =
-      case f e of
-        Nothing -> Nothing
-        Just x -> Maybe.map (Array.push x) acc
-  in
-    Array.foldl step (Just Array.empty)
-
-
-filter2 : (a -> b -> Bool) -> List a -> List b -> List (a,b)
-filter2 p xs ys = List.filter (uncurry p) (List.map2 (,) xs ys)
-
-{-| Remove all elements from both lists that don't satisfy the predicate, then apply the function.
--}
-filterMap2 : (a -> b -> c) -> (a -> b -> Bool) -> List a -> List b -> List c
-filterMap2 f p xs ys = List.map (uncurry f) <| filter2 p xs ys
-
-
-{-| temporary function, until core Array.get supports negative arguments
--}
-get2 : Int -> Array a -> Maybe a
-get2 n a =
-  let
-    len = Array.length a
-  in
-    if n < 0 && abs n <= len
-    then Array.get (len + n) a
-    else Array.get n a
-
-
-set2 : Int -> a -> Array a -> Array a
-set2 n x a =
-  let
-    len = Array.length a
-  in
-    if n < 0 && abs n <= len
-    then Array.set (len + n) x a
-    else Array.set n x a
-
-
-arrayupdate : Int -> (a -> a) -> Array a -> Array a
-arrayupdate n f a =
-  let
-    element = Array.get n a
-  in
-    case element of
-      Nothing -> a
-      Just element' -> Array.set n (f element') a
-
-update2 : Int -> (a -> a) -> Array a -> Array a
-update2 n f a =
-  let
-    len = Array.length a
-  in
-    if n < 0 && abs n <= len
-    then arrayupdate (len + n) f a
-    else arrayupdate n f a
-
-
-sliceFrom : Int -> Array a -> Array a
-sliceFrom n a = Array.slice n (Array.length a) a
-
-
-sliceUntil : Int -> Array a -> Array a
-sliceUntil n a =
-  if n >= 0
-  then Array.slice 0 n a
-  else Array.slice 0 (Array.length a + n) a
