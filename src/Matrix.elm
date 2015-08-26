@@ -9,7 +9,7 @@ module Matrix
   , compare, compareI, comm, diff
   , isEmpty, isSquare,  width, height, size
   , getRow, getCol, firstRow, lastRow, firstCol, lastCol
-  , rows, cols,
+  , rows, cols
   , takeRows, takeCols, takeRowsEnd, takeColsEnd
   , dropRows, dropCols, dropRowsEnd, dropColsEnd
   , slice
@@ -101,12 +101,12 @@ repeat w h = Array.repeat h << Array.repeat w
 type (Int -> Int -> a) to determine the value of the cell, where first
 Int argument is col index and second Int argument is row index.
 
-    matrix 4 2 (+)
+    matrix 4 3 (\x y -> x + y*2 + 1)
 
 will give back the matrix
 
-    0 1 2 3
     1 2 3 4
+    2 4 6 8
 -}
 matrix : Int -> Int -> (Int -> Int -> a) -> Matrix a
 matrix w h f =
@@ -207,7 +207,7 @@ get x y a = Array.Experimental.get y a `andThen` Array.Experimental.get x
 
 
 {-| Set the element at a particular location and return new matrix.
-Return the matrix unchanged if index out of bounds.
+Return the matrix unchanged if index is out of bounds.
 
     set 1 1 10 (square 2 (+)) == fromList [[0,1], [1,10]]
 -}
@@ -222,7 +222,7 @@ set x y e a =
 
 
 {-| Update the element at a particular location using its current
-value. Return matrix unchanged if index out of bounds.
+value. Return matrix unchanged if index is out of bounds.
 
     update 1 1 ((*)2) (square 2 (+)) == fromList [[0,1], [1,4]]
     update 1 1 ((+)5) (square 3 (+)) == fromList [[0,1,2],[1,7,3],[2,3,4]]
@@ -305,11 +305,10 @@ updateMany is f a =
     List.foldl step a is
 
 
+-- TODO: Add a comprehensive example.
 {-| Similar to updateMany. Takes a function of type `a -> b -> a`,
 a list of indexes, and a list of objects. Combines an old object
 under index with a new object using the function.
-
-TODO: Add a comprehensive example.
 -}
 updateManyWith : (a -> b -> a) -> List (Int, Int) -> List b -> Matrix a -> Matrix a
 updateManyWith f is os a =
@@ -327,7 +326,7 @@ toList : Matrix a -> List (List a)
 toList = List.map Array.toList << Array.toList
 
 
-{-| Create a list of 3-tuples (x,y,element) from a matrix.
+{-| Create a list of 3-tuples `(x,y,element)` from a matrix.
 
     toIndexedList (square 2 (+)) == [(0,0,0),(1,0,1),(0,1,1),(1,1,2)]
 -}
@@ -359,7 +358,7 @@ map : (a -> b) -> Matrix a -> Matrix b
 map f = Array.map (Array.map f)
 
 
-{-| Apply a function of type (Int -> Int -> a -> b) to each element
+{-| Apply a function of type `Int -> Int -> a -> b` to each element
 of a matrix. Int arguments of a function are col and row indexes
 respectively.
 
@@ -370,7 +369,7 @@ indexedMap f =
   Array.indexedMap (\y -> Array.indexedMap (\x -> f x y))
 
 
-{-| Take a binary function, a binary predicate, and 2 matrices. The 2 matrices are assumed equal size, although this is not enforced. Compare same-indexed elements using the binary predicate. Return the indexed list of all cells, for which the predicate returns True. The indexed list of cells is of the format [(Int, Int, (a,b))], where `a` is type of element from first matrix, and `b` is type of element from second matrix.
+{-| Take a binary function, a binary predicate, and 2 matrices. The 2 matrices are assumed equal size, although this is not enforced. Compare same-indexed elements using the binary predicate. Return the indexed list of all cells, for which the predicate returns True. The indexed list of cells is of the format `[(Int, Int, (a,b))]`, where `a` is type of element from first matrix, and `b` is type of element from second matrix.
 
 Consider an example. Suppose you have two matrices:
 
@@ -408,7 +407,7 @@ compare cmp a1 a2 =
     List.Experimental.filterMap2 combineCells (compareCells cmp) il1 il2
 
 
-{-| Same as compare, but return only indexes of the form [(Int, Int)], not triples with indexes and pair of elements of the form [(Int,Int,(a,b))].
+{-| Same as compare, but return only indexes of the form `[(Int, Int)]`, not triples with indexes and pair of elements of the form `[(Int,Int,(a,b))]`.
 
     compareI (<=) (square 4 (+)) (square 4 (*))
 
